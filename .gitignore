@@ -1,1 +1,3 @@
-fully_distributed/kMeans/target/
+.idea/
+__pycache__/
+kMeans/__pycache__/
