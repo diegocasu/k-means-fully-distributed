@@ -29,35 +29,27 @@ public class Clustering_FinalMeans {
             
             meanPoint.set(Point.parse(meanAndDataString[0]));
             dataPoint.set(Point.parse(meanAndDataString[1]));
-            partialNewMean.set(dataPoint, 1);
+            partialNewMean.add(dataPoint);
             
             context.write(meanPoint, partialNewMean);
         }   
     }
     
     public static class Clustering_FinalMeansCombiner extends Reducer<Point, AccumulatorPoint, Point, AccumulatorPoint> {
-        private static final Point partialSum = new Point();
         private static final AccumulatorPoint partialNewMean = new AccumulatorPoint();
 
         public void reduce(Point key, Iterable<AccumulatorPoint> values, Context context) throws IOException, InterruptedException {
             Configuration conf = context.getConfiguration();
             
-            // Initial point with coordinates equal to 0.
-            // Id is the same of the relative mean point.
-            partialSum.set(new double[conf.getInt("numberOfDimensions", 1)], PointType.MEAN, key.getId().get());
-            long numberOfPoints = 0;
-            
-            for(AccumulatorPoint partialMean : values) {
-                partialSum.add(partialMean.getPartialMean());
-                numberOfPoints += partialMean.getNumberOfPoints().get();
-            }
-            
-            partialNewMean.set(partialSum, numberOfPoints);
+            for(AccumulatorPoint partialMean : values)
+                partialNewMean.add(partialMean);
+
             context.write(key, partialNewMean);
         }
     }
     
     public static class Clustering_FinalMeansReducer extends Reducer<Point, AccumulatorPoint, NullWritable, Point> {
+        private static final AccumulatorPoint partialNewMean = new AccumulatorPoint();
         private static final Point newMean = new Point();
         private static final DoubleWritable distanceBetweenMeans = new DoubleWritable();
         private static MultipleOutputs multipleOutputs;
@@ -69,18 +61,13 @@ public class Clustering_FinalMeans {
         public void reduce(Point key, Iterable<AccumulatorPoint> values, Context context) throws IOException, InterruptedException {
             Configuration conf = context.getConfiguration();
             
-            // Initial point with coordinates equal to 0.
-            // Id is the same of the relative mean point.         
-            newMean.set(new double[conf.getInt("numberOfDimensions", 1)], PointType.MEAN, key.getId().get());
-            long numberOfPoints = 0;
+            for(AccumulatorPoint partialMean : values)
+                partialNewMean.add(partialMean);
             
-            for(AccumulatorPoint partialMean : values) {
-                newMean.add(partialMean.getPartialMean());
-                numberOfPoints += partialMean.getNumberOfPoints().get();
-            }
-            
-            newMean.div(numberOfPoints);
-            distanceBetweenMeans.set(key.getDistance(newMean));
+            // Id is the same of the relative mean point.  
+            newMean.set(partialNewMean.getValue().getCoordinates(), PointType.MEAN, key.getId());
+            newMean.div(partialNewMean.getNumberOfPoints());
+            distanceBetweenMeans.set(key.getSquaredDistance(newMean));
                      
             // Emit the new mean and the distance between the old and new means, where 
             // the distance is used as stop condition of the algorithm.

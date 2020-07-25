@@ -20,8 +20,8 @@ class Clustering_ClosestPoints {
     public static class Clustering_ClosestPointsPartitioner extends Partitioner<IdTypePair, Point> {
 
         // Ensures that data with the same Id goes to the same reducer.
-        public int getPartition(IdTypePair key, Point value, int numberOfPartitions) {
-            return (key.getId().hashCode() & Integer.MAX_VALUE) % numberOfPartitions;
+        public int getPartition(IdTypePair key, Point value, int numberOfPartitions) {        
+            return (new LongWritable(key.getId()).hashCode() & Integer.MAX_VALUE) % numberOfPartitions;
         }
         
     }
@@ -37,7 +37,7 @@ class Clustering_ClosestPoints {
         public int compare(WritableComparable wc1, WritableComparable wc2) {
             IdTypePair pair = (IdTypePair) wc1;
             IdTypePair pair2 = (IdTypePair) wc2;
-            return pair.getId().compareTo(pair2.getId());
+            return ((Long) pair.getId()).compareTo(pair2.getId());
         }
         
     }
@@ -58,7 +58,7 @@ class Clustering_ClosestPoints {
             }
             
             if (outputValue.isData()) {
-                outputKey.set(outputValue.getId().get(), PointType.DATA);
+                outputKey.set(outputValue.getId(), PointType.DATA);
                 context.write(outputKey, outputValue);
             } else if (outputValue.isMean()) {
                 // Id of the points must go from 1 to numberOfPoints.
@@ -101,7 +101,7 @@ class Clustering_ClosestPoints {
                 if (p.isData())
                     throw new IllegalArgumentException("Error: secondary sort pattern is not working.");
                 
-                double distance = (dataPoint.getDistance(p))*(dataPoint.getDistance(p));
+                double distance = dataPoint.getSquaredDistance(p);
                 if (distance < minimumDistance) {
                     minimumDistance = distance;
                     closestMean.set(p.copy());
@@ -139,7 +139,7 @@ class Clustering_ClosestPoints {
                 if (p.isData())
                     throw new IllegalArgumentException("Error: secondary sort pattern is not working.");
 
-                double distance = dataPoint.getDistance(p)*dataPoint.getDistance(p);
+                double distance = dataPoint.getSquaredDistance(p);
                 if (distance < minimumDistance) {
                     minimumDistance = distance;
                     closestMean.set(p.copy());
