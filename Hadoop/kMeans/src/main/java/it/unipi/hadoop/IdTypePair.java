@@ -3,18 +3,17 @@ package it.unipi.hadoop;
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
-import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.WritableComparable;
 import org.apache.hadoop.io.WritableUtils;
 
 
 public class IdTypePair implements WritableComparable {
-    private final LongWritable id; // Natural key
+    private long id; // Natural key
     private PointType type; // Secondary key
     
     
     public IdTypePair() {
-        id = new LongWritable();
+        id = 0;
         type = PointType.DATA;
     }
     
@@ -24,11 +23,11 @@ public class IdTypePair implements WritableComparable {
     }
     
     public void set(long id, PointType type) {
-        this.id.set(id);
+        this.id = id;
         this.type = type;
     }
     
-    public LongWritable getId() {
+    public long getId() {
         return this.id;
     }
     
@@ -38,13 +37,13 @@ public class IdTypePair implements WritableComparable {
     
     @Override
     public void write(DataOutput out) throws IOException {
-        id.write(out);
+        out.writeLong(id);
         WritableUtils.writeEnum(out, type);   
     }
 
     @Override
     public void readFields(DataInput in) throws IOException {
-        id.readFields(in);
+        id = in.readLong();
         type = WritableUtils.readEnum(in, PointType.class);
     }
 
@@ -54,7 +53,7 @@ public class IdTypePair implements WritableComparable {
     @Override
     public int compareTo(Object o) {
         IdTypePair thatPair = (IdTypePair) o;
-        int compareValue = this.id.compareTo(thatPair.getId());
+        int compareValue = ((Long) this.id).compareTo((Long) thatPair.getId());
         
         if (compareValue == 0) {
             if (this.type == thatPair.getType())
