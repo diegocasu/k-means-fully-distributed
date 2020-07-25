@@ -17,6 +17,15 @@ public class AccumulatorPoint extends Point {
         return numberOfPoints;
     }
     
+    public void add(Point p) {
+        if (numberOfPoints == 0)
+            super.set(p);
+        else
+            super.add(p);
+        
+        numberOfPoints++;
+    }
+    
     @Override
     public void write(DataOutput out) throws IOException {
         super.write(out);
