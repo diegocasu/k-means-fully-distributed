@@ -13,6 +13,10 @@ public class AccumulatorPoint extends Point {
         this.numberOfPoints = 0;
     }
     
+    public Point getValue() {
+        return super.copy();
+    }
+    
     public long getNumberOfPoints() {
         return numberOfPoints;
     }
@@ -24,6 +28,15 @@ public class AccumulatorPoint extends Point {
             super.add(p);
         
         numberOfPoints++;
+    }
+    
+    public void add(AccumulatorPoint acc) {
+        if (numberOfPoints == 0)
+            super.set(acc.getValue());
+        else 
+            super.add(acc.getValue());
+        
+        this.numberOfPoints += acc.getNumberOfPoints();
     }
     
     @Override
