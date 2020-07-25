@@ -15,9 +15,9 @@ import java.io.IOException;
 import java.util.Random;
 
 
-public class MeansSampling {
+public class Sampling {
 
-    public static class MeansSamplingMapper extends Mapper<LongWritable, Text, IntWritable, Point> {
+    public static class SamplingMapper extends Mapper<LongWritable, Text, IntWritable, Point> {
         private final static Random randomGenerator = new Random();
         private final static IntWritable outputKey = new IntWritable();
         private final static Point outputValue = new Point();
@@ -42,10 +42,10 @@ public class MeansSampling {
         }
     }
 
-    public static class MeansSamplingCombiner extends Reducer<IntWritable, Point, IntWritable, Point> {
+    public static class SamplingCombiner extends Reducer<IntWritable, Point, IntWritable, Point> {
         private static int meansCount;
 
-        public void setup(Context context){
+        public void setup(Context context) {
             meansCount = 0;
         }   
         
@@ -63,7 +63,7 @@ public class MeansSampling {
         }
     }
     
-    public static class MeansSamplingReducer extends Reducer<IntWritable, Point, NullWritable, Point>{
+    public static class SamplingReducer extends Reducer<IntWritable, Point, NullWritable, Point> {
         private static int meansCount;
         private static final Point chosenMean = new Point();
 
@@ -91,16 +91,16 @@ public class MeansSampling {
         Configuration conf = job.getConfiguration();
 
         // Set JAR class.
-        job.setJarByClass(MeansSampling.class);
+        job.setJarByClass(Sampling.class);
 
         // Set Mapper class.
-        job.setMapperClass(MeansSamplingMapper.class);
+        job.setMapperClass(SamplingMapper.class);
 
         // Set Combiner class.
-        job.setCombinerClass(MeansSamplingCombiner.class);
+        job.setCombinerClass(SamplingCombiner.class);
 
         // Set Reducer class. It must be a single reducer.
-        job.setReducerClass(MeansSamplingReducer.class);
+        job.setReducerClass(SamplingReducer.class);
         job.setNumReduceTasks(1);
 
         // Set key-value output format.

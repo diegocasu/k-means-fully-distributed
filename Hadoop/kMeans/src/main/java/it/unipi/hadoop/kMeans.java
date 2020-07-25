@@ -7,7 +7,6 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.mapreduce.Job;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.net.URI;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileUtil;
 import org.apache.hadoop.fs.LocalFileSystem;
@@ -95,10 +94,10 @@ public class kMeans {
         return maximumDistanceBetweenMeans;
     }
     
-    private static void executeMeansSampling(Configuration conf) throws IOException, ClassNotFoundException, InterruptedException {
-        Job meansSampling = Job.getInstance(conf, "means_sampling");
+    private static void executeSampling(Configuration conf) throws IOException, ClassNotFoundException, InterruptedException {
+        Job sampling = Job.getInstance(conf, "sampling");
         
-        if (!MeansSampling.main(meansSampling)) {
+        if (!Sampling.main(sampling)) {
            System.err.println("****** ERROR: the sampling of the initial means failed. Exiting the job. ******\n");
            hdfs.close();
            System.exit(1);
@@ -168,7 +167,7 @@ public class kMeans {
             cleanWorkspace(conf);
 
             // First step: select the initial random means.
-            executeMeansSampling(conf);
+            executeSampling(conf);
             copyDirectoryFilesWithinHDFS(conf.get("sampledMeans"), conf.get("intermediateMeans"), conf);
 
             // Second step: update the means until a stop condition is met.
