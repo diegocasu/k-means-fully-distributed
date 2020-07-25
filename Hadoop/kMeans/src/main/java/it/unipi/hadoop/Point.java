@@ -1,46 +1,45 @@
 package it.unipi.hadoop;
 
-import org.apache.hadoop.io.ArrayPrimitiveWritable;
-import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.WritableComparable;
 import org.apache.hadoop.io.WritableUtils;
 import java.io.DataInput;
 import java.io.DataOutput;
 import java.io.IOException;
+import java.util.ArrayList;
 import org.apache.hadoop.io.Text;
 
 
 public class Point implements WritableComparable {
-    private final ArrayPrimitiveWritable coordinates;
+    private ArrayList<Double> coordinates;
     private PointType type;
-    private final LongWritable id;
+    private long id;
 
     public Point() {
-        coordinates = new ArrayPrimitiveWritable();
+        coordinates = new ArrayList();
         type = PointType.DATA;
-        id = new LongWritable();
+        id = 0;
     }
     
-    public Point(final double[] coordinates, PointType type, long id){
+    public Point(ArrayList<Double> coordinates, PointType type, long id) {
         this();       
         this.set(coordinates, type, id);
     }
 
-    public void set(final double[] coordinates, PointType type, long id) {
-        this.coordinates.set(coordinates);
+    public void set(ArrayList<Double> coordinates, PointType type, long id) {
+        this.coordinates = coordinates;
         this.type = type;
-        this.id.set(id);
+        this.id = id;
     }
     
     public void set(Point p) {
-        this.set((double[]) p.getCoordinates().get(), p.getType(), p.getId().get());
+        this.set(p.getCoordinates(), p.getType(), p.getId());
     }
     
-    public ArrayPrimitiveWritable getCoordinates() {
+    public ArrayList<Double> getCoordinates() {
         return this.coordinates;
     }
     
-    public LongWritable getId() {
+    public long getId() {
         return this.id;
     }
     
@@ -49,45 +48,43 @@ public class Point implements WritableComparable {
     }
     
     public int getNumberOfDimensions() {
-        double[] vector = (double[]) this.coordinates.get();
-        return vector.length;
+        return this.coordinates.size();
     }
     
-    public double getDistance(Point that){
+    public double getSquaredDistance(Point that) {
         if (this.getNumberOfDimensions() != that.getNumberOfDimensions()) {
             System.err.println("The points " + this.toString() + " " + that.toString() + " have different dimensions. The distance is not defined.");
             return -1;
         }
         
         double sum = 0;
-        double[] thisVector = (double[]) this.coordinates.get();
-        double[] thatVector = (double[]) that.getCoordinates().get();
+        ArrayList<Double> thisCoordinates = this.getCoordinates();
+        ArrayList<Double> thatCoordinates = that.getCoordinates();
 
-        for (int i = 0; i < thisVector.length; i++){
-            sum += (thisVector[i] - thatVector[i])*(thisVector[i] - thatVector[i]);
+        for (int i = 0; i < thisCoordinates.size(); i++){
+            sum += (thisCoordinates.get(i) - thatCoordinates.get(i))*(thisCoordinates.get(i) - thatCoordinates.get(i));
         }
 
-        return Math.sqrt(sum);
+        return sum;
     }
 
-    public void add(Point that){
+    public void add(Point that) {
         if (this.getNumberOfDimensions() != that.getNumberOfDimensions()) {
             System.err.println("The points " + this.toString() + " " + that.toString() + " have different dimensions. The sum is not defined.");
             return;
         }
         
-        double[] thisVector = (double[]) this.coordinates.get();
-        double[] thatVector = (double[]) that.getCoordinates().get();
-        for (int i = 0; i < thisVector.length; i++){
-            thisVector[i] += thatVector[i];
+        ArrayList<Double> thisCoordinates = this.getCoordinates();
+        ArrayList<Double> thatCoordinates = that.getCoordinates();
+
+        for (int i = 0; i < thisCoordinates.size(); i++){
+            thisCoordinates.set(i, thisCoordinates.get(i) + thatCoordinates.get(i));
         }
     }
  
-    public void div(long n){
-        double[] coordinatesDouble = (double[]) this.coordinates.get();
-        
-        for (int i = 0; i < coordinatesDouble.length; i++){
-            coordinatesDouble[i] /= n;
+    public void div(long n) {
+        for (int i = 0; i < coordinates.size(); i++){
+            coordinates.set(i, coordinates.get(i)/n);
         }
     }
 
@@ -99,51 +96,56 @@ public class Point implements WritableComparable {
         return this.type == PointType.DATA;
     }
 
-    public Point copy() {
-        return new Point((double[]) this.coordinates.get(), this.type, this.id.get());
+    public Point copy() {  
+        return new Point(this.coordinates, this.type, this.id);
     }
 
     @Override
-    public void write(DataOutput out) throws IOException {
-        coordinates.write(out);
+    public void write(DataOutput out) throws IOException {       
+        out.writeInt(coordinates.size());
+        for (Double c: coordinates)
+            out.writeDouble(c);
+        
         WritableUtils.writeEnum(out, type);
-        id.write(out);
+        out.writeLong(id);
     }
 
     @Override
     public void readFields(DataInput in) throws IOException {
-        coordinates.readFields(in);
+        int size = in.readInt();
+
+        coordinates = new ArrayList<>();
+        for (int i = 0; i < size; i++)
+            coordinates.add(in.readDouble());
+        
         type = WritableUtils.readEnum(in, PointType.class);
-        id.readFields(in);
+        id = in.readLong();
     }
     
     @Override
-    public String toString(){
-        double[] coordinatesDouble = (double[]) this.coordinates.get();
-        String[] coordinatesString = new String[coordinatesDouble.length];
+    public String toString() {
+        String[] coordinatesString = new String[this.coordinates.size()];
         
         for (int i = 0; i < coordinatesString.length; i++)
-            coordinatesString[i] = Double.toString(coordinatesDouble[i]);
+            coordinatesString[i] = Double.toString(this.coordinates.get(i));
         
-        return this.type.toString() + "," + this.id.get() + "," + String.join(",", coordinatesString);        
+        return this.type.toString() + "," + this.id + "," + String.join(",", coordinatesString);        
     }
 
     @Override
     public int compareTo(Object o) {
         Point thatPoint = (Point) o;
-        int compareId = this.id.compareTo(thatPoint.getId());
+        int compareId = ((Long) this.id).compareTo((Long) thatPoint.getId());
         
         if (compareId == 0) {
             if (this.type == thatPoint.getType()) {
-                double[] thisVector = (double[]) this.coordinates.get();
-                double[] thatVector = (double[]) thatPoint.getCoordinates().get();
-
-                for (int i = 0; i < thisVector.length; i++) {
-                    if (thisVector[i] < thatVector[i]){
+                
+                for (int i = 0; i < this.coordinates.size(); i++) {
+                    if (this.coordinates.get(i) < thatPoint.getCoordinates().get(i)){
                         return -1;
                     }
 
-                    if (thisVector[i] > thatVector[i]) {
+                    if (this.coordinates.get(i) > thatPoint.getCoordinates().get(i)) {
                         return 1;
                     }
                 }
@@ -168,11 +170,11 @@ public class Point implements WritableComparable {
         String[] valueElements = value.split(",");
         
         PointType parsedType = PointType.valueOf(valueElements[0]);
-        long parsedId = Long.valueOf(valueElements[1]);  
-        double[] parsedCoordinates = new double[valueElements.length - 2];
-        
+        long parsedId = Long.valueOf(valueElements[1]);
+        ArrayList<Double> parsedCoordinates = new ArrayList();
+
         for (int i = 2; i < valueElements.length; i++) {
-            parsedCoordinates[i - 2] = Double.parseDouble(valueElements[i]);
+            parsedCoordinates.add(Double.parseDouble(valueElements[i]));
         }
         
         return new Point(parsedCoordinates, parsedType, parsedId);

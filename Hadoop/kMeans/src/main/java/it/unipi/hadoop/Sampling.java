@@ -78,7 +78,7 @@ public class Sampling {
             for (Point candidateMean : values){
                 if (meansCount < numberOfClusters){
                     // Id of the means must go from 1 to numberOfClusters.
-                    chosenMean.set((double[]) candidateMean.getCoordinates().get(), PointType.MEAN, meansCount + 1);
+                    chosenMean.set(candidateMean.getCoordinates(), PointType.MEAN, meansCount + 1);
                     context.write(null, chosenMean);
                     meansCount++;
                 } else 
