@@ -1,4 +1,3 @@
-
 package it.unipi.hadoop;
 
 import java.io.IOException;
@@ -20,10 +19,10 @@ import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 
 public class Clustering_FinalMeans {
         
-    public static class Clustering_FinalMeansMapper extends Mapper<LongWritable, Text, Point, PartialNewMean> {
+    public static class Clustering_FinalMeansMapper extends Mapper<LongWritable, Text, Point, AccumulatorPoint> {
         private static final Point meanPoint = new Point();
         private static final Point dataPoint = new Point();
-        private static final PartialNewMean partialNewMean = new PartialNewMean();
+        private static final AccumulatorPoint partialNewMean = new AccumulatorPoint();
         
         public void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
             String[] meanAndDataString = value.toString().split("\t");     
@@ -36,11 +35,11 @@ public class Clustering_FinalMeans {
         }   
     }
     
-    public static class Clustering_FinalMeansCombiner extends Reducer<Point, PartialNewMean, Point, PartialNewMean> {
+    public static class Clustering_FinalMeansCombiner extends Reducer<Point, AccumulatorPoint, Point, AccumulatorPoint> {
         private static final Point partialSum = new Point();
-        private static final PartialNewMean partialNewMean = new PartialNewMean();
+        private static final AccumulatorPoint partialNewMean = new AccumulatorPoint();
 
-        public void reduce(Point key, Iterable<PartialNewMean> values, Context context) throws IOException, InterruptedException {
+        public void reduce(Point key, Iterable<AccumulatorPoint> values, Context context) throws IOException, InterruptedException {
             Configuration conf = context.getConfiguration();
             
             // Initial point with coordinates equal to 0.
@@ -48,7 +47,7 @@ public class Clustering_FinalMeans {
             partialSum.set(new double[conf.getInt("numberOfDimensions", 1)], PointType.MEAN, key.getId().get());
             long numberOfPoints = 0;
             
-            for(PartialNewMean partialMean : values) {
+            for(AccumulatorPoint partialMean : values) {
                 partialSum.add(partialMean.getPartialMean());
                 numberOfPoints += partialMean.getNumberOfPoints().get();
             }
@@ -58,7 +57,7 @@ public class Clustering_FinalMeans {
         }
     }
     
-    public static class Clustering_FinalMeansReducer extends Reducer<Point, PartialNewMean, NullWritable, Point> {
+    public static class Clustering_FinalMeansReducer extends Reducer<Point, AccumulatorPoint, NullWritable, Point> {
         private static final Point newMean = new Point();
         private static final DoubleWritable distanceBetweenMeans = new DoubleWritable();
         private static MultipleOutputs multipleOutputs;
@@ -67,7 +66,7 @@ public class Clustering_FinalMeans {
              multipleOutputs = new MultipleOutputs(context);
         }
         
-        public void reduce(Point key, Iterable<PartialNewMean> values, Context context) throws IOException, InterruptedException {
+        public void reduce(Point key, Iterable<AccumulatorPoint> values, Context context) throws IOException, InterruptedException {
             Configuration conf = context.getConfiguration();
             
             // Initial point with coordinates equal to 0.
@@ -75,7 +74,7 @@ public class Clustering_FinalMeans {
             newMean.set(new double[conf.getInt("numberOfDimensions", 1)], PointType.MEAN, key.getId().get());
             long numberOfPoints = 0;
             
-            for(PartialNewMean partialMean : values) {
+            for(AccumulatorPoint partialMean : values) {
                 newMean.add(partialMean.getPartialMean());
                 numberOfPoints += partialMean.getNumberOfPoints().get();
             }
@@ -116,7 +115,7 @@ public class Clustering_FinalMeans {
         
         // Set key-value output format.
         job.setMapOutputKeyClass(Point.class);
-        job.setMapOutputValueClass(PartialNewMean.class);
+        job.setMapOutputValueClass(AccumulatorPoint.class);
         job.setOutputKeyClass(NullWritable.class);
         job.setOutputValueClass(Point.class);
         

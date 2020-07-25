@@ -1,4 +1,3 @@
-
 package it.unipi.hadoop;
 
 import java.io.DataInput;
