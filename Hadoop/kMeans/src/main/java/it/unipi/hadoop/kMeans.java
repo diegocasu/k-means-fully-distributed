@@ -18,7 +18,6 @@ import org.apache.hadoop.hdfs.DistributedFileSystem;
 public class kMeans {
     private static FileSystem hdfs;
     
-    
     private static void setupConfiguration(LocalConfiguration localConfig, Configuration conf) {
         // File system manipulation.
         conf.set("fs.hdfs.impl", DistributedFileSystem.class.getName());
@@ -31,18 +30,14 @@ public class kMeans {
         conf.set("inputPath", localConfig.getInputPath());
         conf.setInt("seedRNG", localConfig.getSeedRNG());
         conf.setInt("clusteringNumberOfReduceTasks", localConfig.getClusteringNumberOfReduceTasks());
-        conf.setDouble("distanceThreshold", localConfig.getDistanceThreshold());
+        conf.setDouble("errorThreshold", localConfig.getErrorThreshold());
         conf.setBoolean("verbose", localConfig.getVerbose());
         
         // Working directories, based on the given output path.        
         conf.set("sampledMeans", localConfig.getOutputPath() + "/" + "sampled-means");
         conf.set("intermediateMeans", localConfig.getOutputPath() + "/" + "intermediate-means");
         conf.set("clusteringClosestPoints", localConfig.getOutputPath() + "/" + "clustering-closest-points");
-        
         conf.set("clusteringFinalMeans", localConfig.getOutputPath() + "/" + "clustering-final-means");
-        conf.set("clusteringFinalMeans_FinalMeans", "final-means"); // Sub-directory of clusteringFinalMeans.
-        conf.set("clusteringFinalMeans_DistanceBetweenMeans", "distance-between-means"); // Sub-directory of clusteringFinalMeans.
-        
         conf.set("convergence", localConfig.getOutputPath() + "/" + "convergence");
     }
     
@@ -76,22 +71,22 @@ public class kMeans {
         createDirectoryWithinHDFS(conf.get("intermediateMeans"));
     }
 
-    private static double parseMaximumDistanceBetweenMeans(Configuration conf) throws IOException {
-        double maximumDistanceBetweenMeans = 0;
+    private static double parseObjectiveFunction(Configuration conf) throws IOException {
+        double objectiveFunction = Double.POSITIVE_INFINITY;
         
-        // Single maximum distance inside a single file. Guaranteed by the single reducer for convergence.
+        // Single value inside a single file. Guaranteed by the single reducer for convergence.
         FSDataInputStream hdfsDataInputStream = hdfs.open(new Path(conf.get("convergence") + "/part-r-00000"));
         BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(hdfsDataInputStream));
         String line = "";
 
         // It is a one line only file.
         while ((line = bufferedReader.readLine()) != null) {
-            maximumDistanceBetweenMeans = Double.parseDouble(line);
+            objectiveFunction = Double.parseDouble(line);
         }
         
         bufferedReader.close();
         
-        return maximumDistanceBetweenMeans;
+        return objectiveFunction;
     }
     
     private static void executeSampling(Configuration conf) throws IOException, ClassNotFoundException, InterruptedException {
@@ -134,21 +129,24 @@ public class kMeans {
         System.out.println("****** SUCCESS: the convergence iteration succeeded. ******\n");
     }
     
-    private static boolean stopConditionMet(Configuration conf, int iterationNumber) throws IOException {
-        double currentMaximumDistanceBetweenMeans = parseMaximumDistanceBetweenMeans(conf);
-        double distanceThreshold = conf.getDouble("distanceThreshold", 1);
-        
+    private static boolean stopConditionMet(Configuration conf, int iterationNumber, double objectiveFunction, double lastObjectiveFunction) throws IOException {
         System.out.println("****** Iteration number: " + (iterationNumber + 1) + " ******");
-        System.out.println("****** Maximum distance between old and new means: " + currentMaximumDistanceBetweenMeans + " ******");
-        System.out.println("****** Distance threshold: " + distanceThreshold + " ******\n");
-       
+        System.out.println("****** Last objective function value: " + lastObjectiveFunction + " ******");
+        System.out.println("****** Current objective function value: " + objectiveFunction + " ******\n");
+        
         if (iterationNumber == 0) {
             System.out.println("****** First iteration: stop condition not checked. ******\n");
             return false;
         }
         
-        if (currentMaximumDistanceBetweenMeans <= distanceThreshold ) {
-            System.out.println("****** Stop condition met: distance " + currentMaximumDistanceBetweenMeans + " ******\n");
+        double error = 100*((lastObjectiveFunction - objectiveFunction)/lastObjectiveFunction);
+        double errorThreshold = conf.getDouble("errorThreshold", 1);
+        
+        System.out.println("****** Current error: " + error + "% ******");
+        System.out.println("****** Error threshold: " + errorThreshold + "% ******\n");
+        
+        if (error <= errorThreshold) {
+            System.out.println("****** Stop condition met: error " + error + "% ******\n");
             return true;
         }
         
@@ -172,18 +170,22 @@ public class kMeans {
 
             // Second step: update the means until a stop condition is met.
             int completedIterations = 0;
+            double lastObjectiveFunction = Double.POSITIVE_INFINITY;
 
             while (completedIterations < localConfig.getMaximumNumberOfIterations()) {
                 executeKMeansIteration(conf);
+                double objectiveFunction = parseObjectiveFunction(conf);
 
-                if (stopConditionMet(conf, completedIterations)) {
+                if (stopConditionMet(conf, completedIterations, objectiveFunction, lastObjectiveFunction)) {
                     hdfs.close();
                     return;
                 }
+                
+                lastObjectiveFunction = objectiveFunction;
 
                 deleteDirectoryWithinHDFS(conf.get("intermediateMeans"));
                 createDirectoryWithinHDFS(conf.get("intermediateMeans"));
-                copyDirectoryFilesWithinHDFS(conf.get("clusteringFinalMeans") + "/" + conf.get("clusteringFinalMeans_FinalMeans"), conf.get("intermediateMeans"), conf);
+                copyDirectoryFilesWithinHDFS(conf.get("clusteringFinalMeans"), conf.get("intermediateMeans"), conf);
 
                 deleteDirectoryWithinHDFS(conf.get("clusteringClosestPoints"));
                 deleteDirectoryWithinHDFS(conf.get("clusteringFinalMeans"));
