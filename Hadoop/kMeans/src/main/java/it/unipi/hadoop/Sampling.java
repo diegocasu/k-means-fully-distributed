@@ -22,7 +22,7 @@ public class Sampling {
         private final static IntWritable outputKey = new IntWritable();
         private final static Point outputValue = new Point();
         
-        public void setup(Context context){
+        public void setup(Context context) {
             Configuration conf = context.getConfiguration();
             randomGenerator.setSeed(conf.getInt("seedRNG", 1));
         }  
@@ -53,7 +53,7 @@ public class Sampling {
             Configuration conf = context.getConfiguration();
             int numberOfClusters = conf.getInt("numberOfClusters", 1);
             
-            for (Point candidateMean : values){
+            for (Point candidateMean : values) {
                 if (meansCount < numberOfClusters){
                     context.write(key, candidateMean);
                     meansCount++;
@@ -67,7 +67,7 @@ public class Sampling {
         private static int meansCount;
         private static final Point chosenMean = new Point();
 
-        public void setup(Context context){
+        public void setup(Context context) {
             meansCount = 0;
         }
 
@@ -75,7 +75,7 @@ public class Sampling {
             Configuration conf = context.getConfiguration();
             int numberOfClusters = conf.getInt("numberOfClusters", 1);
             
-            for (Point candidateMean : values){
+            for (Point candidateMean : values) {
                 if (meansCount < numberOfClusters){
                     // Id of the means must go from 1 to numberOfClusters.
                     chosenMean.set(candidateMean.getCoordinates(), PointType.MEAN, meansCount + 1);
