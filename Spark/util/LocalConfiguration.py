@@ -15,7 +15,7 @@ class LocalConfiguration:
 
         # K-means
         self.seed_RNG = self.configuration["K-means"].getint("seedRNG")
-        self.distance_threshold = self.configuration["K-means"].getfloat("distanceThreshold")
+        self.error_threshold = self.configuration["K-means"].getfloat("errorThreshold")
         self.max_number_iterations = self.configuration["K-means"].getint("maximumNumberOfIterations")
 
         # Spark
@@ -32,8 +32,8 @@ class LocalConfiguration:
             print("LocalConfiguration validation error: the number of clusters must be greater than 0")
             exit()
 
-        if self.distance_threshold < 0:
-            print("LocalConfiguration validation error: the distance threshold must be greater than or equal to 0")
+        if self.error_threshold < 0:
+            print("LocalConfiguration validation error: the error threshold must be greater than or equal to 0")
             exit()
 
         if self.max_number_iterations <= 0:
@@ -58,8 +58,8 @@ class LocalConfiguration:
     def get_log_level(self):
         return self.log_level
 
-    def get_distance_threshold(self):
-        return self.distance_threshold
+    def get_error_threshold(self):
+        return self.error_threshold
 
     def get_maximum_number_of_iterations(self):
         return self.max_number_iterations
@@ -70,6 +70,6 @@ class LocalConfiguration:
         print("inputPath = " + self.input_path)
         print("outputPath = " + self.output_path)
         print("seedRNG = " + str(self.seed_RNG))
-        print("distanceThreshold = " + str(self.distance_threshold) + "%")
+        print("errorThreshold = " + str(self.error_threshold) + "%")
         print("maximumNumberOfIterations = " + str(self.max_number_iterations))
         print("logLevel = " + self.log_level)

@@ -31,17 +31,22 @@ def get_random_means(config, points_rdd):
         fraction = fraction*2
 
 
-def stop_condition(max_distance_between_means, iteration_number, distance_threshold):
+def stop_condition(objective_function, last_objective_function, iteration_number, error_threshold):
     print("****** Iteration number: " + str(iteration_number + 1) + " ******")
-    print("****** Maximum distance between old and new means: " + str(max_distance_between_means) + " ******")
-    print("****** Distance threshold: " + str(distance_threshold) + " ******")
+    print("****** Last objective function value: " + str(last_objective_function) + " ******")
+    print("****** Current objective function value: " + str(objective_function) + " ******")
 
     if iteration_number == 0:
         print("****** First iteration: stop condition not checked. ******\n")
         return False
 
-    if max_distance_between_means <= distance_threshold:
-        print("****** Stop condition met: distance " + str(max_distance_between_means) + " ******\n")
+    error = 100*((last_objective_function - objective_function)/last_objective_function)
+
+    print("****** Current error: " + str(error) + "% ******");
+    print("****** Error threshold: " + str(error_threshold) + "% ******\n")
+
+    if error <= error_threshold:
+        print("****** Stop condition met: error " + str(error) + " ******\n")
         return True
 
     print()
@@ -62,34 +67,37 @@ def main():
     points_rdd = spark_context.textFile(config.get_input_path()).map(PointUtility.parse_point).cache()
 
     # First step: select the initial random means.
-    sampled_means = get_random_means(config, points_rdd).cache()
+    sampled_means_rdd = get_random_means(config, points_rdd).cache()
 
     # Second step: update the means until a stop condition is met.
-    iteration_means = sampled_means
+    iteration_means_rdd = sampled_means_rdd
+    last_objective_function = float("inf")
     completed_iterations = 0
 
     while completed_iterations < config.get_maximum_number_of_iterations():
-        # Compute an rdd of values in the format (old_mean, new_mean, distance), where "distance"
-        # is the euclidean distance between each old/new mean couple.
-        old_new_means_rdd = points_rdd.cartesian(iteration_means)\
+        new_means_rdd = points_rdd.cartesian(iteration_means_rdd)\
+                                    .map(PointUtility.cast_to_dictionary)\
+                                    .reduceByKey(PointUtility.get_closest_mean)\
+                                    .map(PointUtility.cast_to_tuple)\
+                                    .reduceByKey(PointUtility.sum_partial_means)\
+                                    .map(PointUtility.compute_new_mean)
+
+        objective_function = points_rdd.cartesian(new_means_rdd)\
                                         .map(PointUtility.cast_to_dictionary)\
                                         .reduceByKey(PointUtility.get_closest_mean)\
-                                        .map(PointUtility.cast_to_tuple)\
-                                        .reduceByKey(PointUtility.sum_partial_means)\
-                                        .map(PointUtility.compute_new_mean)
+                                        .map(PointUtility.get_squared_distance)\
+                                        .sum()
 
-        new_means_rdd = old_new_means_rdd.map(lambda x: x[1])
-        max_distance_between_means = old_new_means_rdd.map(lambda x: x[2]).max()
-
-        if stop_condition(max_distance_between_means, completed_iterations, config.get_distance_threshold()):
+        if stop_condition(objective_function, last_objective_function, completed_iterations, config.get_error_threshold()):
             new_means_rdd.map(PointUtility.to_string).saveAsTextFile(config.get_output_path() + "/final-means")
             spark_context.stop()
             return
 
-        iteration_means.unpersist()
-        iteration_means = new_means_rdd
-        iteration_means.cache()
+        iteration_means_rdd.unpersist()
+        iteration_means_rdd = new_means_rdd
+        iteration_means_rdd.cache()
 
+        last_objective_function = objective_function
         completed_iterations += 1
 
     spark_context.stop()

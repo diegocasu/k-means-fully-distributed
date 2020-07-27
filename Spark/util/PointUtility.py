@@ -26,11 +26,11 @@ def cast_to_tuple(point_dict_tuple):
     # Tuple used to make the ndarray hashable in reduceByKey()
     closest_mean = tuple(point_dict_tuple[1]["Mean"])
 
-    # The first element is a tuple of a single element, because of the previous use as a key.
+    # The first element is a tuple composed of a single element, because of the previous use as a key.
     # Now it is considered as a value, so the tuple must be reconverted to an ndarray.
     point = np.array(point_dict_tuple[0])
 
-    return closest_mean, (np.array(point), 1)
+    return closest_mean, (point, 1)
 
 
 def sum_partial_means(partial_c1, partial_c2):
@@ -38,11 +38,16 @@ def sum_partial_means(partial_c1, partial_c2):
 
 
 def compute_new_mean(old_new_mean_tuple):
-    old_mean = old_new_mean_tuple[0]
     new_mean = old_new_mean_tuple[1][0]/old_new_mean_tuple[1][1]
-    distance = (np.sum((old_mean - new_mean)**2))**(1/2)
 
-    return old_mean, new_mean, distance
+    return new_mean
+
+
+def get_squared_distance(point_dict_tuple):
+    closest_mean = point_dict_tuple[1]["Mean"]
+    point = point_dict_tuple[0]
+
+    return np.sum((closest_mean - point) ** 2)
 
 
 def to_string(point):
