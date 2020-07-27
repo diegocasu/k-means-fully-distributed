@@ -12,7 +12,7 @@ def delete_output_file(output_file, spark_context):
     fileSystem.delete(Path(output_file))
 
 
-def get_random_means(config, points_rdd, spark_context):
+def get_random_means(config, points_rdd):
     # The sample() method is probabilistic and does not ensure that exactly K values are returned, so the sampling is
     # executed multiple times if the required size is not met, with a fraction of points doubled at each iteration.
     fraction = config.get_number_of_clusters()/config.get_number_of_points()
@@ -62,7 +62,7 @@ def main():
     points_rdd = spark_context.textFile(config.get_input_path()).map(PointUtility.parse_point).cache()
 
     # First step: select the initial random means.
-    sampled_means = get_random_means(config, points_rdd, spark_context).cache()
+    sampled_means = get_random_means(config, points_rdd).cache()
 
     # Second step: update the means until a stop condition is met.
     iteration_means = sampled_means
