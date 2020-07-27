@@ -1,5 +1,5 @@
-from kMeans.PointUtility import PointUtility
-from kMeans.LocalConfiguration import LocalConfiguration
+from util import PointUtility
+from util.LocalConfiguration import LocalConfiguration
 from pyspark import SparkContext
 
 
